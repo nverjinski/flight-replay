@@ -40,16 +40,18 @@ class Attitude(BaseModel):
     pitch_deg: float = Field(ge=-90, le=90)
     bank_deg: float = Field(ge=-180, le=180)
 
+
 class Performance(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     indicated_airspeed_kt: float = Field(ge=0)
     vertical_speed_fpm: float
 
+
 class Configuration(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    throttle_pct: int = Field(ge=0, le=100)
+    throttle_pct: float = Field(ge=0, le=100)
     flaps_deg: int = Field(ge=0, le=100)
     gear_down: bool
     on_ground: bool
