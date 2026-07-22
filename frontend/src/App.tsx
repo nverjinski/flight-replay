@@ -1,5 +1,10 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchFlights, fetchTelemetry } from "./api/flights";
+import { PlaybackControls } from "./components/PlaybackControls";
+import { TelemetryCharts } from "./components/TelemetryCharts";
+import { usePlayback } from "./hooks/usePlayback";
+import { getPhaseMarkers } from "./lib/phaseMarkers";
 
 export default function App() {
   const flightsQuery = useQuery({
@@ -15,13 +20,28 @@ export default function App() {
     enabled: Boolean(flightId),
   });
 
-  if (flightsQuery.isPending) {
-    return <p>Loading flights…</p>;
+  const points = telemetryQuery.data ?? [];
+  const playback = usePlayback(points);
+  const markers = useMemo(() => getPhaseMarkers(points), [points]);
+
+  // Slim, stable series for Recharts — rebuilt only when telemetry loads.
+  const chartData = useMemo(
+    () =>
+      points.map((p) => ({
+        elapsed_ms: p.elapsed_ms,
+        altitude_ft: p.altitude_ft,
+        indicated_airspeed_kt: p.indicated_airspeed_kt,
+      })),
+    [points],
+  );
+
+  if (flightsQuery.isPending || telemetryQuery.isPending) {
+    return <p className="app">Loading flight…</p>;
   }
 
   if (flightsQuery.isError) {
     return (
-      <p>
+      <p className="app">
         Failed to load flights. Is the API running on{" "}
         {import.meta.env.VITE_API_BASE_URL}?
         <br />
@@ -30,40 +50,68 @@ export default function App() {
     );
   }
 
-  const flight = flightsQuery.data[0];
-
-  if (!flight) {
-    return <p>No flights registered.</p>;
+  if (telemetryQuery.isError) {
+    return (
+      <p className="app">
+        Telemetry error: {(telemetryQuery.error as Error).message}
+      </p>
+    );
   }
 
-  return (
-    <main style={{ fontFamily: "system-ui", padding: 24, maxWidth: 720 }}>
-      <h1>Flight Replay</h1>
-      <p>
-        {flight.aircraft_type} · {flight.tail_number} · {flight.id}
-      </p>
-      <p>
-        {flight.point_count} points · {(flight.duration_ms / 1000 / 60).toFixed(1)}{" "}
-        min · phases: {flight.phases.join(", ")}
-      </p>
+  const flight = flightsQuery.data[0];
+  if (!flight || points.length === 0) {
+    return <p className="app">No flight data.</p>;
+  }
 
-      {telemetryQuery.isPending && <p>Loading telemetry…</p>}
-      {telemetryQuery.isError && (
-        <p>Telemetry error: {(telemetryQuery.error as Error).message}</p>
-      )}
-      {telemetryQuery.data && (
+  const current = playback.current!;
+  const maxIndex = points.length - 1;
+
+  return (
+    <main className="app">
+      <header className="app-header">
+        <h1>Flight Replay</h1>
+        <p>
+          {flight.aircraft_type} · {flight.tail_number} · {flight.id}
+        </p>
+      </header>
+
+      <div className="hud">
         <div>
-          <p>
-            Loaded <strong>{telemetryQuery.data.length}</strong> telemetry points.
-          </p>
-          <pre style={{ fontSize: 12, overflow: "auto", background: "#f4f4f4", padding: 12 }}>
-            {JSON.stringify(telemetryQuery.data[0], null, 2)}
-          </pre>
-          <pre style={{ fontSize: 12, overflow: "auto", background: "#f4f4f4", padding: 12 }}>
-            {JSON.stringify(telemetryQuery.data.at(-1), null, 2)}
-          </pre>
+          <span>Altitude</span>
+          {current.altitude_ft.toFixed(0)} ft
         </div>
-      )}
+        <div>
+          <span>IAS</span>
+          {current.indicated_airspeed_kt.toFixed(0)} kt
+        </div>
+        <div>
+          <span>Heading</span>
+          {current.heading_true_deg.toFixed(0)}°
+        </div>
+        <div>
+          <span>VS</span>
+          {current.vertical_speed_fpm.toFixed(0)} fpm
+        </div>
+      </div>
+
+      <PlaybackControls
+        index={playback.index}
+        maxIndex={maxIndex}
+        elapsedMs={current.elapsed_ms}
+        durationMs={points[maxIndex].elapsed_ms}
+        phase={current.phase}
+        playing={playback.playing}
+        speed={playback.speed}
+        markers={markers}
+        onToggle={playback.toggle}
+        onSpeed={playback.setSpeed}
+        onScrub={playback.scrub}
+      />
+
+      <TelemetryCharts
+        data={chartData}
+        currentElapsedMs={current.elapsed_ms}
+      />
     </main>
   );
 }
