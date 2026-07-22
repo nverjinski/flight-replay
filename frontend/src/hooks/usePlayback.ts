@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { interpolateTelemetry } from "../lib/interpolateTelemetry";
 import type { TelemetryPoint } from "../types/telemetry";
 
 export type PlaybackSpeed = 1 | 5 | 10 | 50;
@@ -12,6 +13,9 @@ export type PlaybackState = {
   toggle: () => void;
   setSpeed: (speed: PlaybackSpeed) => void;
   scrub: (index: number) => void;
+  /** Discrete sample at `index` (phase markers, flown path). */
+  sample: TelemetryPoint | null;
+  /** Position blended toward the next sample using leftover carry time. */
   current: TelemetryPoint | null;
 };
 
@@ -21,9 +25,13 @@ export type PlaybackState = {
  *
  * So 50× means “50 seconds of flight per 1 second of wall clock”,
  * not “50 animation frames per second”.
+ *
+ * Between samples, `blend` (0–1) tracks progress across the current step so
+ * the map icon can move continuously instead of jumping ~1s at a time.
  */
 export function usePlayback(points: TelemetryPoint[]): PlaybackState {
   const [index, setIndex] = useState(0);
+  const [blend, setBlend] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeedState] = useState<PlaybackSpeed>(1);
 
@@ -34,15 +42,14 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
   /** Max React setState rate while playing (~120fps). rAF still caps to display refresh. */
   const UI_EMIT_INTERVAL_MS = 1000 / 120;
 
-  // Keep indexRef in sync for the rAF loop (avoids stale closures).
   useEffect(() => {
     indexRef.current = index;
   }, [index]);
 
-  // Reset when a new telemetry array loads.
   useEffect(() => {
     setIndex(0);
     indexRef.current = 0;
+    setBlend(0);
     setPlaying(false);
     carryMsRef.current = 0;
     lastWallRef.current = null;
@@ -51,9 +58,8 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
   // Playback clock: while playing, run a requestAnimationFrame loop that converts
   // wall-clock time into simulated flight time (wallDelta * speed), accumulates it
   // in carryMsRef, then advances index across telemetry points by spending that
-  // budget on each point's elapsed_ms delta. Stops at the last point. Depends on
-  // playing/speed/points only — index is read/written via refs so the loop does
-  // not restart every frame.
+  // budget on each point's elapsed_ms delta. Leftover carry / step → blend for
+  // smooth interpolation. Stops at the last point.
   useEffect(() => {
     if (!playing || points.length < 2) {
       lastWallRef.current = null;
@@ -77,7 +83,6 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
 
       while (i < points.length - 1) {
         const step = points[i + 1].elapsed_ms - points[i].elapsed_ms;
-        // Duplicate / identical timestamps: always advance.
         const cost = step > 0 ? step : 1;
 
         if (carryMsRef.current < cost) {
@@ -88,23 +93,27 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
         i += 1;
       }
 
-      const moved = i !== indexRef.current;
-      if (moved) {
+      if (i !== indexRef.current) {
         indexRef.current = i;
       }
 
       const atEnd = i >= points.length - 1;
-      const dueForUi =
-        atEnd || now - lastEmitWallRef.current >= UI_EMIT_INTERVAL_MS;
+      let nextBlend = 0;
+      if (!atEnd) {
+        const step = points[i + 1].elapsed_ms - points[i].elapsed_ms;
+        nextBlend = step > 0 ? Math.min(1, carryMsRef.current / step) : 0;
+      }
 
-      if (moved && dueForUi) {
+      const dueForUi = atEnd || now - lastEmitWallRef.current >= UI_EMIT_INTERVAL_MS;
+      if (dueForUi) {
         lastEmitWallRef.current = now;
         setIndex(i);
+        setBlend(nextBlend);
       }
 
       if (atEnd) {
-        // Final index flush (in case last emit was throttled) + stop.
         setIndex(i);
+        setBlend(0);
         setPlaying(false);
         carryMsRef.current = 0;
         lastWallRef.current = null;
@@ -124,10 +133,10 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
     if (points.length === 0) {
       return;
     }
-    // Restart from beginning if we finished.
     if (indexRef.current >= points.length - 1) {
       indexRef.current = 0;
       setIndex(0);
+      setBlend(0);
       carryMsRef.current = 0;
     }
     setPlaying(true);
@@ -157,11 +166,25 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
       const clamped = Math.max(0, Math.min(nextIndex, points.length - 1));
       indexRef.current = clamped;
       setIndex(clamped);
+      setBlend(0);
       carryMsRef.current = 0;
       lastWallRef.current = null;
     },
     [points.length],
   );
+
+  const sample = points[index] ?? null;
+
+  const current = useMemo(() => {
+    if (!sample) {
+      return null;
+    }
+    const next = points[Math.min(index + 1, points.length - 1)];
+    if (!next || blend <= 0) {
+      return sample;
+    }
+    return interpolateTelemetry(sample, next, blend);
+  }, [points, index, blend, sample]);
 
   return {
     index,
@@ -172,6 +195,7 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
     toggle,
     setSpeed,
     scrub,
-    current: points[index] ?? null,
+    sample,
+    current,
   };
 }

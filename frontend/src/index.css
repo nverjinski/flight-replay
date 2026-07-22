@@ -188,3 +188,31 @@ button:hover {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+.app {
+  max-width: 1200px; /* was 1100 — optional bump */
+}
+
+.replay-map {
+  width: 100%;
+  height: min(58vh, 560px);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0a0f16;
+}
+
+.map-missing-token {
+  display: grid;
+  place-items: center;
+  height: min(58vh, 560px);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  padding: 1rem;
+  text-align: center;
+}
+
+.map-missing-token code {
+  color: var(--accent);
+}

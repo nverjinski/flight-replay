@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchFlights, fetchTelemetry } from "./api/flights";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { TelemetryCharts } from "./components/TelemetryCharts";
+import { ReplayMap } from "./components/ReplayMap";
 import { usePlayback } from "./hooks/usePlayback";
 import { getPhaseMarkers } from "./lib/phaseMarkers";
 
@@ -74,6 +75,12 @@ export default function App() {
           {flight.aircraft_type} · {flight.tail_number} · {flight.id}
         </p>
       </header>
+      <ReplayMap
+        points={points}
+        current={current}
+        sampleIndex={playback.index}
+        follow={playback.playing}
+      />
 
       <div className="hud">
         <div>
