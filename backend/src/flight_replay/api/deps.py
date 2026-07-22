@@ -6,8 +6,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 
+from flight_replay.api.schemas import FlightSummary, to_flight_summary
 from flight_replay.normalize import NormalizedTelemetryRecord
 from flight_replay.readers import iter_normalized
+from flight_replay.stats import compute_stats
 
 
 class FlightStore(Protocol):
@@ -23,6 +25,8 @@ class FlightStore(Protocol):
     def list_flight_ids(self) -> list[str]: ...
 
     def get_telemetry(self, flight_id: str) -> list[NormalizedTelemetryRecord] | None: ...
+
+    def list_summaries(self) -> list[FlightSummary]: ...
 
 
 class FileFlightStore:
@@ -44,6 +48,36 @@ class FileFlightStore:
 
         # iter_normalized is a generator (lazy). list(...) reads every point now.
         return list(iter_normalized(path))
+
+    def get_summary(self, flight_id: str) -> FlightSummary | None:
+        path = self._flights.get(flight_id)
+        if path is None:
+            return None
+
+        # One-pass stats (point_count, duration, phases, ...)
+        stats = compute_stats(path)
+
+        # First record for aircraft / synthetic (second short pass)
+        first = next(iter_normalized(path))
+
+        return to_flight_summary(
+            registry_id=flight_id,
+            stats=stats,
+            aircraft_type=first.aircraft_type,
+            tail_number=first.tail_number,
+            synthetic=first.synthetic,
+            origin_label=None,
+            destination_label=None,
+        )
+
+    def list_summaries(self) -> list[FlightSummary]:
+        summaries: list[FlightSummary] = []
+        for flight_id in self.list_flight_ids():
+            summary = self.get_summary(flight_id)
+            if summary is not None:
+                summaries.append(summary)
+
+        return summaries
 
 
 def _default_data_dir() -> Path:

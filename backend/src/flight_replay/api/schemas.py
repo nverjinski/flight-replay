@@ -6,6 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from flight_replay.normalize import NormalizedTelemetryRecord
+from flight_replay.stats import FlightStats
 
 
 class TelemetryPoint(BaseModel):
@@ -36,7 +37,14 @@ class TelemetryPoint(BaseModel):
 
 class FlightSummary(BaseModel):
     id: str
-    # point_count: int  # optional for Phase 1; nice for UI headers
+    point_count: int
+    duration_ms: int
+    aircraft_type: str
+    tail_number: str
+    origin_label: str | None = None  # e.g. "KMOB" — optional if you don't parse it yet
+    destination_label: str | None = None
+    phases: list[str]
+    synthetic: bool
 
 
 class HealthResponse(BaseModel):
@@ -46,3 +54,26 @@ class HealthResponse(BaseModel):
 def to_telemetry_point(record: NormalizedTelemetryRecord) -> TelemetryPoint:
     """Turn our internal dataclass into the API Pydantic model."""
     return TelemetryPoint.model_validate(asdict(record))
+
+
+def to_flight_summary(
+    *,
+    registry_id: str,
+    stats: FlightStats,
+    aircraft_type: str,
+    tail_number: str,
+    synthetic: bool,
+    origin_label: str | None = None,
+    destination_label: str | None = None,
+) -> FlightSummary:
+    return FlightSummary(
+        id=registry_id,
+        point_count=stats.point_count,
+        duration_ms=stats.duration_ms,
+        aircraft_type=aircraft_type,
+        tail_number=tail_number,
+        origin_label=origin_label,
+        destination_label=destination_label,
+        phases=list(stats.phases),
+        synthetic=synthetic,
+    )

@@ -16,7 +16,7 @@ router = APIRouter(tags=["flights"])
 def list_flights(
     store: FlightStore = Depends(flight_store_dep),
 ) -> list[FlightSummary]:
-    return [FlightSummary(id=flight_id) for flight_id in store.list_flight_ids()]
+    return store.list_summaries()
 
 
 @router.get(

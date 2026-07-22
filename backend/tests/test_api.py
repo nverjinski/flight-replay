@@ -26,7 +26,19 @@ def test_list_flights() -> None:
     response = client.get("/flights")
 
     assert response.status_code == 200
-    assert response.json() == [{"id": "TEST-FLIGHT-001"}]
+    data = response.json()
+    assert len(data) == 1
+
+    flight = data[0]
+    assert flight["id"] == "TEST-FLIGHT-001"
+    assert flight["point_count"] == 2
+    assert flight["duration_ms"] >= 0
+    assert flight["aircraft_type"] == "Cessna 172S"
+    assert flight["tail_number"] == "N172NV"
+    assert isinstance(flight["phases"], list)
+    assert flight["synthetic"] is True
+    assert flight["origin_label"] is None
+    assert flight["destination_label"] is None
 
 
 def test_telemetry_ok() -> None:
