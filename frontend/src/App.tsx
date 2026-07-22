@@ -65,7 +65,7 @@ export default function App() {
   }
 
   const current = playback.current!;
-  const maxIndex = points.length - 1;
+  const durationMs = points[points.length - 1].elapsed_ms;
 
   return (
     <main className="app">
@@ -79,7 +79,7 @@ export default function App() {
         points={points}
         current={current}
         sampleIndex={playback.index}
-        follow={playback.playing}
+        playing={playback.playing}
       />
 
       <div className="hud">
@@ -102,17 +102,15 @@ export default function App() {
       </div>
 
       <PlaybackControls
-        index={playback.index}
-        maxIndex={maxIndex}
         elapsedMs={current.elapsed_ms}
-        durationMs={points[maxIndex].elapsed_ms}
+        durationMs={durationMs}
         phase={current.phase}
         playing={playback.playing}
         speed={playback.speed}
         markers={markers}
         onToggle={playback.toggle}
         onSpeed={playback.setSpeed}
-        onScrub={playback.scrub}
+        onScrubElapsed={playback.scrubToElapsed}
       />
 
       <TelemetryCharts

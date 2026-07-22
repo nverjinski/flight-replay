@@ -5,8 +5,6 @@ import type { PhaseMarker } from "../lib/phaseMarkers";
 const SPEEDS: PlaybackSpeed[] = [1, 5, 10, 50];
 
 type Props = {
-  index: number;
-  maxIndex: number;
   elapsedMs: number;
   durationMs: number;
   phase: string;
@@ -15,7 +13,8 @@ type Props = {
   markers: PhaseMarker[];
   onToggle: () => void;
   onSpeed: (speed: PlaybackSpeed) => void;
-  onScrub: (index: number) => void;
+  /** Scrub by flight time so the thumb matches the clock / chart cursor. */
+  onScrubElapsed: (elapsedMs: number) => void;
 };
 
 function formatClock(elapsedMs: number): string {
@@ -29,12 +28,10 @@ function formatClock(elapsedMs: number): string {
  * Timeline UI for flight replay: play/pause, speed (1×–50×), scrubber, clock,
  * current phase label, and clickable phase-change markers along the track.
  *
- * Takes scalar playback fields (not the full points array) so rapid ticks do not
- * push a huge prop tree through React DevTools performance cloning.
+ * The scrubber is driven by elapsed flight time (not discrete sample index) so
+ * it stays aligned with the interpolated clock and chart cursor.
  */
 export const PlaybackControls = memo(function PlaybackControls({
-  index,
-  maxIndex,
   elapsedMs,
   durationMs,
   phase,
@@ -43,8 +40,10 @@ export const PlaybackControls = memo(function PlaybackControls({
   markers,
   onToggle,
   onSpeed,
-  onScrub,
+  onScrubElapsed,
 }: Props) {
+  const safeDuration = Math.max(durationMs, 1);
+
   return (
     <section className="playback">
       <div className="playback-row">
@@ -76,15 +75,15 @@ export const PlaybackControls = memo(function PlaybackControls({
         <input
           type="range"
           min={0}
-          max={maxIndex}
-          value={index}
-          onChange={(e) => onScrub(Number(e.target.value))}
+          max={safeDuration}
+          value={Math.min(elapsedMs, safeDuration)}
+          onChange={(e) => onScrubElapsed(Number(e.target.value))}
           aria-label="Timeline"
         />
 
         <div className="phase-markers" aria-hidden="true">
           {markers.map((marker) => {
-            const left = maxIndex === 0 ? 0 : (marker.index / maxIndex) * 100;
+            const left = (marker.elapsed_ms / safeDuration) * 100;
             return (
               <button
                 key={`${marker.phase}-${marker.index}`}
@@ -92,7 +91,7 @@ export const PlaybackControls = memo(function PlaybackControls({
                 className="phase-tick"
                 style={{ left: `${left}%` }}
                 title={`${marker.phase} @ ${formatClock(marker.elapsed_ms)}`}
-                onClick={() => onScrub(marker.index)}
+                onClick={() => onScrubElapsed(marker.elapsed_ms)}
               >
                 <span className="phase-tick-label">{marker.phase}</span>
               </button>

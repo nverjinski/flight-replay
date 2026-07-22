@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MapPinIcon } from "@heroicons/react/24/solid";
 import { Map, useControl } from "react-map-gl/mapbox";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { IconLayer, PathLayer, ScatterplotLayer } from "@deck.gl/layers";
@@ -36,8 +37,8 @@ type Props = {
   current: TelemetryPoint;
   /** Discrete index for the flown-path polyline. */
   sampleIndex: number;
-  /** When true, ease the camera toward the aircraft (unless user is dragging/zooming). */
-  follow?: boolean;
+  /** When playback is running, follow arms automatically until the user pans. */
+  playing?: boolean;
 };
 
 function boundsFromPoints(points: TelemetryPoint[]): MapViewState {
@@ -53,78 +54,102 @@ function boundsFromPoints(points: TelemetryPoint[]): MapViewState {
     maxLat = Math.max(maxLat, p.latitude);
   }
 
-  const centerLon = (minLon + maxLon) / 2;
-  const centerLat = (minLat + maxLat) / 2;
   return {
-    longitude: centerLon,
-    latitude: centerLat,
-    // Corridor overview; follow mode eases in closer so early climb is visible.
+    longitude: (minLon + maxLon) / 2,
+    latitude: (minLat + maxLat) / 2,
     zoom: 9.5,
     pitch: 0,
     bearing: 0,
   };
 }
 
+/** Wheel / pinch zoom should not break follow; drag pan should. */
+function isZoomGesture(originalEvent: Event): boolean {
+  if (typeof WheelEvent !== "undefined" && originalEvent instanceof WheelEvent) {
+    return true;
+  }
+  if (typeof TouchEvent !== "undefined" && originalEvent instanceof TouchEvent) {
+    return originalEvent.touches.length > 1;
+  }
+  return false;
+}
+
 /**
  * Mapbox basemap + Deck.gl path trail and heading-aware aircraft marker.
- * Trail geometry is memoized; aircraft uses the interpolated `current` pose.
+ * Play arms camera follow; panning breaks follow and shows a recenter control.
+ * Zoom never breaks follow.
  */
 export function ReplayMap({
   points,
   current,
   sampleIndex,
-  follow = true,
+  playing = false,
 }: Props) {
   const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
 
   const initialViewState = useMemo(() => boundsFromPoints(points), [points]);
   const [viewState, setViewState] = useState<MapViewState>(initialViewState);
+  const [followActive, setFollowActive] = useState(false);
 
   const viewStateRef = useRef(viewState);
   const followTargetRef = useRef({
     longitude: current.longitude,
     latitude: current.latitude,
   });
-  const userInteractingRef = useRef(false);
-  const followEnabledRef = useRef(follow);
+  const followActiveRef = useRef(false);
+  const playingRef = useRef(playing);
 
   viewStateRef.current = viewState;
   followTargetRef.current = {
     longitude: current.longitude,
     latitude: current.latitude,
   };
-  followEnabledRef.current = follow;
+  playingRef.current = playing;
 
-  // Damped camera follow on rAF. Skips frames while the user drags/zooms so we
-  // never snap the map out from under a held pointer. Also eases zoom in — at
-  // overview zoom (~8) early climb only moves a few hundred meters and looks
-  // "stuck on the runway" even when altitude/phase have advanced correctly.
+  const breakFollow = () => {
+    // Ref first so the rAF loop stops pulling the camera before React re-renders.
+    followActiveRef.current = false;
+    setFollowActive(false);
+  };
+
+  const armFollow = () => {
+    followActiveRef.current = true;
+    setFollowActive(true);
+  };
+
+  // Arm follow whenever playback starts; clear when it stops.
   useEffect(() => {
-    if (!follow) {
+    if (playing) {
+      armFollow();
+    } else {
+      breakFollow();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to play/pause edges
+  }, [playing]);
+
+  // Damped pan-only follow. Preserves the user's zoom.
+  useEffect(() => {
+    if (!followActive) {
       return;
     }
 
     const FOLLOW_LERP = 0.12;
-    const FOLLOW_ZOOM = 12;
-    const ZOOM_LERP = 0.06;
     let rafId = 0;
 
     const tick = () => {
-      if (!userInteractingRef.current && followEnabledRef.current) {
+      if (followActiveRef.current) {
         const prev = viewStateRef.current;
         const target = followTargetRef.current;
         const longitude =
           prev.longitude + (target.longitude - prev.longitude) * FOLLOW_LERP;
         const latitude =
           prev.latitude + (target.latitude - prev.latitude) * FOLLOW_LERP;
-        const zoom = prev.zoom + (FOLLOW_ZOOM - prev.zoom) * ZOOM_LERP;
 
         if (
           Math.abs(longitude - prev.longitude) > 1e-8 ||
-          Math.abs(latitude - prev.latitude) > 1e-8 ||
-          Math.abs(zoom - prev.zoom) > 1e-4
+          Math.abs(latitude - prev.latitude) > 1e-8
         ) {
-          const next = { ...prev, longitude, latitude, zoom };
+          const next = { ...prev, longitude, latitude };
           viewStateRef.current = next;
           setViewState(next);
         }
@@ -134,7 +159,19 @@ export function ReplayMap({
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [follow]);
+  }, [followActive]);
+
+  const recenterOnAircraft = () => {
+    const prev = viewStateRef.current;
+    const next = {
+      ...prev,
+      longitude: current.longitude,
+      latitude: current.latitude,
+    };
+    viewStateRef.current = next;
+    setViewState(next);
+    armFollow();
+  };
 
   const pathFeature = useMemo(
     () => [
@@ -146,8 +183,6 @@ export function ReplayMap({
   );
 
   const flownFeature = useMemo(() => {
-    // Discrete samples up to the current index, then the interpolated pose so the
-    // cyan trail tip stays glued to the aircraft (not one sample behind).
     const flown = points
       .slice(0, sampleIndex + 1)
       .map((p) => [p.longitude, p.latitude] as [number, number]);
@@ -156,7 +191,6 @@ export function ReplayMap({
     if (!last || last[0] !== tip[0] || last[1] !== tip[1]) {
       flown.push(tip);
     }
-    // PathLayer needs at least 2 vertices.
     if (flown.length < 2 && points[0]) {
       flown.unshift([points[0].longitude, points[0].latitude]);
     }
@@ -250,6 +284,8 @@ export function ReplayMap({
     );
   }
 
+  const showRecenter = playing && !followActive;
+
   return (
     <div className="replay-map">
       <Map
@@ -258,25 +294,47 @@ export function ReplayMap({
         onMove={(evt) => {
           viewStateRef.current = evt.viewState;
           setViewState(evt.viewState);
+
+          // User-driven map moves include originalEvent. Programmatic follow
+          // updates do not. Wheel/pinch zoom keeps follow; drag pan breaks it.
+          const original = (evt as {originalEvent?: Event}).originalEvent;
+          if (
+            playingRef.current &&
+            followActiveRef.current &&
+            original &&
+            !isZoomGesture(original)
+          ) {
+            breakFollow();
+          }
         }}
         onDragStart={() => {
-          userInteractingRef.current = true;
+          if (playingRef.current) {
+            breakFollow();
+          }
         }}
-        onDragEnd={() => {
-          userInteractingRef.current = false;
-        }}
-        onZoomStart={() => {
-          userInteractingRef.current = true;
-        }}
-        onZoomEnd={() => {
-          userInteractingRef.current = false;
+        onDrag={() => {
+          if (playingRef.current && followActiveRef.current) {
+            breakFollow();
+          }
         }}
         mapStyle="mapbox://styles/mapbox/dark-v11"
         style={{ width: "100%", height: "100%" }}
-        attributionControl={true}
+        attributionControl={false}
       >
         <DeckGLOverlay layers={layers} />
       </Map>
+
+      {showRecenter && (
+        <button
+          type="button"
+          className="map-recenter-btn"
+          onClick={recenterOnAircraft}
+          title="Re-center and follow aircraft"
+          aria-label="Re-center and follow aircraft"
+        >
+          <MapPinIcon className="map-recenter-icon" />
+        </button>
+      )}
     </div>
   );
 }

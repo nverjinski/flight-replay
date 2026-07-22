@@ -133,14 +133,6 @@ button:hover {
   background: var(--accent);
 }
 
-.chart-with-cursor {
-  position: relative;
-}
-
-.chart-with-cursor + .chart-with-cursor {
-  margin-top: 0.75rem;
-}
-
 .chart-block + .chart-block {
   margin-top: 0.75rem;
 }
@@ -154,17 +146,6 @@ button:hover {
 
 .chart-plot {
   position: relative;
-}
-
-.chart-cursor {
-  position: absolute;
-  top: 5px;
-  bottom: 25px;
-  width: 2px;
-  margin-left: -1px;
-  background: #ffb020;
-  pointer-events: none;
-  z-index: 2;
 }
 
 .hud {
@@ -194,12 +175,48 @@ button:hover {
 }
 
 .replay-map {
+  position: relative;
   width: 100%;
   height: min(58vh, 560px);
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--line);
   background: #0a0f16;
+}
+
+/* Hide Mapbox logo + leftover attribution chrome inside the replay map. */
+.replay-map .mapboxgl-ctrl-logo,
+.replay-map .mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
+.map-recenter-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, black);
+  color: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.map-recenter-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.map-recenter-icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .map-missing-token {

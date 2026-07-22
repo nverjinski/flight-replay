@@ -12,7 +12,10 @@ export type PlaybackState = {
   pause: () => void;
   toggle: () => void;
   setSpeed: (speed: PlaybackSpeed) => void;
+  /** Jump to a discrete sample (blend reset). */
   scrub: (index: number) => void;
+  /** Jump to an interpolated time along the flight (keeps scrubber/clock/charts aligned). */
+  scrubToElapsed: (elapsedMs: number) => void;
   /** Discrete sample at `index` (phase markers, flown path). */
   sample: TelemetryPoint | null;
   /** Position blended toward the next sample using leftover carry time. */
@@ -173,6 +176,53 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
     [points.length],
   );
 
+  const scrubToElapsed = useCallback(
+    (elapsedMs: number) => {
+      if (points.length === 0) {
+        return;
+      }
+
+      const maxElapsed = points[points.length - 1].elapsed_ms;
+      const target = Math.max(0, Math.min(elapsedMs, maxElapsed));
+
+      // Largest index with elapsed_ms <= target.
+      let lo = 0;
+      let hi = points.length - 1;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (points[mid].elapsed_ms <= target) {
+          lo = mid;
+        } else {
+          hi = mid - 1;
+        }
+      }
+
+      const i = lo;
+      indexRef.current = i;
+      setIndex(i);
+      lastWallRef.current = null;
+
+      if (i >= points.length - 1) {
+        setBlend(0);
+        carryMsRef.current = 0;
+        return;
+      }
+
+      const step = points[i + 1].elapsed_ms - points[i].elapsed_ms;
+      const into = target - points[i].elapsed_ms;
+      if (step <= 0) {
+        setBlend(0);
+        carryMsRef.current = 0;
+        return;
+      }
+
+      const nextBlend = Math.min(1, Math.max(0, into / step));
+      setBlend(nextBlend);
+      carryMsRef.current = into;
+    },
+    [points],
+  );
+
   const sample = points[index] ?? null;
 
   const current = useMemo(() => {
@@ -195,6 +245,7 @@ export function usePlayback(points: TelemetryPoint[]): PlaybackState {
     toggle,
     setSpeed,
     scrub,
+    scrubToElapsed,
     sample,
     current,
   };
