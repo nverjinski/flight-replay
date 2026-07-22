@@ -11,12 +11,25 @@ from flight_replay.api.schemas import (
 
 router = APIRouter(tags=["flights"])
 
-
 @router.get("/flights", response_model=list[FlightSummary])
 def list_flights(
     store: FlightStore = Depends(flight_store_dep),
 ) -> list[FlightSummary]:
     return store.list_summaries()
+
+
+@router.get("/flights/{flight_id}", response_model=FlightSummary)
+def get_flight_summary(
+    flight_id: str,
+    store: FlightStore = Depends(flight_store_dep),
+) -> FlightSummary:
+    summary = store.get_summary(flight_id)
+    if summary is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Flight not found: {flight_id}",
+        )
+    return summary
 
 
 @router.get(
