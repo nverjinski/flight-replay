@@ -24,6 +24,7 @@ def test_normalize_assigns_sequence() -> None:
 
 def test_normalize_rejects_negative_sequence() -> None:
     import pytest
+
     from flight_replay.models import parse_telemetry_dict
 
     raw = parse_telemetry_dict(sample_record())
