@@ -11,6 +11,7 @@ from flight_replay.api.schemas import (
 
 router = APIRouter(tags=["flights"])
 
+
 @router.get("/flights", response_model=list[FlightSummary])
 def list_flights(
     store: FlightStore = Depends(flight_store_dep),
