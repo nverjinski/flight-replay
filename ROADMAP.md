@@ -36,7 +36,7 @@ flowchart LR
 
 ## Phase checklist
 
-- [ ] **Phase 0:** Python package, Pydantic schema, CLI validate/stats, pytest, monorepo skeleton
+- [x] **Phase 0:** Python package, Pydantic schema, CLI validate/stats, pytest, monorepo skeleton
 - [ ] **Phase 1:** React map/charts/playback + thin FastAPI telemetry endpoint (wow demo)
 - [ ] **Phase 2:** Postgres + SQLAlchemy + Alembic + import job + flight/telemetry APIs
 - [ ] **Phase 3:** Async replay service POSTing `/telemetry` at 1×/10×/100×
