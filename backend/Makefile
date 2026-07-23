@@ -1,4 +1,4 @@
-.PHONY: fmt check test
+.PHONY: fmt check test api
 
 fmt:
 	uv run ruff format .
@@ -14,3 +14,6 @@ check:
 
 test:
 	uv run pytest --cov=flight_replay --cov-report=term-missing
+
+api:
+	uv run uvicorn flight_replay.api.app:app --reload --app-dir src --port 8000

@@ -71,6 +71,17 @@ function isZoomGesture(originalEvent: Event): boolean {
   return false;
 }
 
+function toPathCoords(slice: TelemetryPoint[]): [number, number][] {
+  return slice.map((p) => [p.longitude, p.latitude]);
+}
+
+function ensureMinPath(path: [number, number][]): [number, number][] {
+  if (path.length === 1) {
+    return [path[0]!, path[0]!];
+  }
+  return path;
+}
+
 /**
  * Mapbox basemap + Deck.gl path trail + Heroicons aircraft marker.
  * Play arms camera follow; panning breaks follow and shows a recenter control.
@@ -167,56 +178,64 @@ export function ReplayMap({
     armFollow();
   };
 
-  const pathFeature = useMemo(
-    () => [
-      {
-        path: points.map((p) => [p.longitude, p.latitude] as [number, number]),
-      },
-    ],
-    [points],
+  // Flown = discrete samples through sampleIndex + interpolated tip (glued to
+  // the aircraft). Remaining starts at that same tip so the two PathLayers
+  // share a vertex but do not overdraw the same segment (reduces AA static).
+  const tip = useMemo(
+    (): [number, number] => [current.longitude, current.latitude],
+    [current.longitude, current.latitude],
   );
 
   const flownFeature = useMemo(() => {
-    const flown = points
-      .slice(0, sampleIndex + 1)
-      .map((p) => [p.longitude, p.latitude] as [number, number]);
-    const tip: [number, number] = [current.longitude, current.latitude];
-    const last = flown[flown.length - 1];
+    const path = toPathCoords(points.slice(0, sampleIndex + 1));
+    const last = path[path.length - 1];
     if (!last || last[0] !== tip[0] || last[1] !== tip[1]) {
-      flown.push(tip);
+      path.push(tip);
     }
-    if (flown.length < 2 && points[0]) {
-      flown.unshift([points[0].longitude, points[0].latitude]);
-    }
-    return [{ path: flown }];
-  }, [points, sampleIndex, current.longitude, current.latitude]);
+    const finalPath = ensureMinPath(path);
+    return finalPath.length >= 2 ? [{ path: finalPath }] : [];
+  }, [points, sampleIndex, tip]);
+
+  const remainingFeature = useMemo(() => {
+    const rest = toPathCoords(points.slice(sampleIndex + 1));
+    const path = ensureMinPath([tip, ...rest]);
+    return path.length >= 2 ? [{ path }] : [];
+  }, [points, sampleIndex, tip]);
 
   const layers = useMemo(() => {
-    const trail = new PathLayer({
-      id: "flight-trail-full",
-      data: pathFeature,
+    const remaining = new PathLayer({
+      id: "flight-trail-remaining",
+      data: remainingFeature,
       getPath: (d: { path: [number, number][] }) => d.path,
-      getColor: [80, 100, 130, 160],
+      getColor: [80, 100, 130, 255],
       getWidth: 3,
       widthUnits: "pixels",
+      widthMinPixels: 2,
       pickable: false,
+      parameters: { depthTest: false },
+      updateTriggers: {
+        getPath: [sampleIndex, tip[0], tip[1]],
+      },
     });
 
     const flown = new PathLayer({
       id: "flight-trail-flown",
       data: flownFeature,
       getPath: (d: { path: [number, number][] }) => d.path,
-      getColor: [94, 200, 255, 230],
+      getColor: [94, 200, 255, 255],
       getWidth: 4,
       widthUnits: "pixels",
+      widthMinPixels: 2,
       pickable: false,
+      parameters: { depthTest: false },
       updateTriggers: {
-        getPath: [sampleIndex, current.longitude, current.latitude],
+        getPath: [sampleIndex, tip[0], tip[1]],
       },
     });
 
-    return [trail, flown];
-  }, [pathFeature, flownFeature, sampleIndex, current.longitude, current.latitude]);
+    // Remaining under flown so the join pixel prefers cyan.
+    return [remaining, flown];
+  }, [remainingFeature, flownFeature, sampleIndex, tip]);
 
   if (!token) {
     return (

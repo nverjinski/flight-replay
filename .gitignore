@@ -11,9 +11,11 @@ build/
 .coverage
 htmlcov/
 
-# Env / secrets
+# Env / secrets (keep committed *.env.example templates)
 .env
 .env.*
+!.env.example
+!**/.env.example
 
 # Node (frontend later)
 node_modules/
