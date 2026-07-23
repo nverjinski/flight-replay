@@ -1,10 +1,11 @@
-import aircraftUrl from "../assets/aircraft.png";
+import { AIRCRAFT_ICON_DATA_URL } from "./aircraftIconData";
 
 /**
- * Raster atlas URL for Deck.gl IconLayer.
- * Note: WebGL textures need PNG/JPEG — SVG imports often fail to appear.
+ * Atlas for Deck.gl IconLayer — data URL so WebGL does not depend on Vite's
+ * hashed asset fetch (which often fails silently for IconLayer).
+ * Source art: Heroicons solid PaperAirplane in src/assets/aircraft.svg
  */
-export const AIRCRAFT_ICON_ATLAS = aircraftUrl;
+export const AIRCRAFT_ICON_ATLAS = AIRCRAFT_ICON_DATA_URL;
 
 export const AIRCRAFT_ICON_MAPPING = {
   aircraft: {

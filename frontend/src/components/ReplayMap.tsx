@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapPinIcon } from "@heroicons/react/24/solid";
-import { Map, useControl } from "react-map-gl/mapbox";
+import { MapPinIcon, PaperAirplaneIcon } from "@heroicons/react/24/solid";
+import { Map, Marker, useControl } from "react-map-gl/mapbox";
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { IconLayer, PathLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { PathLayer } from "@deck.gl/layers";
 import type { MapViewState } from "@deck.gl/core";
 import type { TelemetryPoint } from "../types/telemetry";
-import { AIRCRAFT_ICON_ATLAS, AIRCRAFT_ICON_MAPPING } from "../lib/aircraftIcon";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 type OverlayProps = {
@@ -16,11 +15,9 @@ type OverlayProps = {
     : never;
 };
 
-/** Bridge Deck.gl layers onto a Mapbox map (react-map-gl). */
+/** Bridge Deck.gl path layers onto a Mapbox map (react-map-gl). */
 function DeckGLOverlay({ layers }: { layers: OverlayProps["layers"] }) {
   const overlay = useControl<MapboxOverlay>(
-    // Non-interleaved: Deck draws in an overlay canvas above the map.
-    // More reliable for IconLayer textures than interleaved Mapbox layers.
     () => new MapboxOverlay({ interleaved: false }),
   );
 
@@ -75,7 +72,7 @@ function isZoomGesture(originalEvent: Event): boolean {
 }
 
 /**
- * Mapbox basemap + Deck.gl path trail and heading-aware aircraft marker.
+ * Mapbox basemap + Deck.gl path trail + Heroicons aircraft marker.
  * Play arms camera follow; panning breaks follow and shows a recenter control.
  * Zoom never breaks follow.
  */
@@ -107,7 +104,6 @@ export function ReplayMap({
   playingRef.current = playing;
 
   const breakFollow = () => {
-    // Ref first so the rAF loop stops pulling the camera before React re-renders.
     followActiveRef.current = false;
     setFollowActive(false);
   };
@@ -117,7 +113,6 @@ export function ReplayMap({
     setFollowActive(true);
   };
 
-  // Arm follow whenever playback starts; clear when it stops.
   useEffect(() => {
     if (playing) {
       armFollow();
@@ -127,7 +122,6 @@ export function ReplayMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to play/pause edges
   }, [playing]);
 
-  // Damped pan-only follow. Preserves the user's zoom.
   useEffect(() => {
     if (!followActive) {
       return;
@@ -221,60 +215,8 @@ export function ReplayMap({
       },
     });
 
-    const aircraftData = [
-      {
-        position: [current.longitude, current.latitude] as [number, number],
-        heading: current.heading_true_deg,
-      },
-    ];
-
-    const aircraftDot = new ScatterplotLayer({
-      id: "aircraft-dot",
-      data: aircraftData,
-      getPosition: (d: { position: [number, number] }) => d.position,
-      getRadius: 10,
-      radiusUnits: "pixels",
-      getFillColor: [255, 176, 32, 255],
-      getLineColor: [11, 16, 23, 255],
-      lineWidthUnits: "pixels",
-      getLineWidth: 2,
-      stroked: true,
-      pickable: false,
-      parameters: { depthTest: false },
-      updateTriggers: {
-        getPosition: [current.longitude, current.latitude],
-      },
-    });
-
-    const aircraft = new IconLayer({
-      id: "aircraft",
-      data: aircraftData,
-      iconAtlas: AIRCRAFT_ICON_ATLAS,
-      iconMapping: AIRCRAFT_ICON_MAPPING,
-      getIcon: () => "aircraft",
-      getPosition: (d: { position: [number, number] }) => d.position,
-      getAngle: (d: { heading: number }) => -d.heading,
-      getSize: 56,
-      sizeUnits: "pixels",
-      billboard: true,
-      pickable: false,
-      alphaCutoff: 0.05,
-      parameters: { depthTest: false },
-      updateTriggers: {
-        getPosition: [current.longitude, current.latitude],
-        getAngle: [current.heading_true_deg],
-      },
-    });
-
-    return [trail, flown, aircraftDot, aircraft];
-  }, [
-    pathFeature,
-    flownFeature,
-    sampleIndex,
-    current.longitude,
-    current.latitude,
-    current.heading_true_deg,
-  ]);
+    return [trail, flown];
+  }, [pathFeature, flownFeature, sampleIndex, current.longitude, current.latitude]);
 
   if (!token) {
     return (
@@ -286,6 +228,9 @@ export function ReplayMap({
 
   const showRecenter = playing && !followActive;
 
+  // Heroicons PaperAirplane points east by default; offset so 0° heading = north.
+  const markerRotation = current.heading_true_deg - 90;
+
   return (
     <div className="replay-map">
       <Map
@@ -295,9 +240,7 @@ export function ReplayMap({
           viewStateRef.current = evt.viewState;
           setViewState(evt.viewState);
 
-          // User-driven map moves include originalEvent. Programmatic follow
-          // updates do not. Wheel/pinch zoom keeps follow; drag pan breaks it.
-          const original = (evt as {originalEvent?: Event}).originalEvent;
+          const original = (evt as { originalEvent?: Event }).originalEvent;
           if (
             playingRef.current &&
             followActiveRef.current &&
@@ -322,6 +265,20 @@ export function ReplayMap({
         attributionControl={false}
       >
         <DeckGLOverlay layers={layers} />
+        <Marker
+          longitude={current.longitude}
+          latitude={current.latitude}
+          anchor="center"
+          rotation={markerRotation}
+          rotationAlignment="map"
+          pitchAlignment="map"
+          style={{ zIndex: 3 }}
+        >
+          <PaperAirplaneIcon
+            className="aircraft-marker-icon"
+            aria-label="Aircraft"
+          />
+        </Marker>
       </Map>
 
       {showRecenter && (

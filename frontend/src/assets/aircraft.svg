@@ -1,8 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <path
-    fill="#5ec8ff"
-    stroke="#0b1017"
-    stroke-width="6"
-    d="M64 8 L104 112 L64 88 L24 112 Z"
-  />
+  <!--
+    Heroicons 24/solid PaperAirplaneIcon, scaled and rotated so the nose
+    points up (north) for Deck.gl heading rotation.
+  -->
+  <g transform="translate(64 64) rotate(-90) scale(3.6) translate(-12 -12)">
+    <path
+      fill="#5ec8ff"
+      d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z"
+    />
+  </g>
 </svg>
