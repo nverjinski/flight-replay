@@ -26,7 +26,7 @@ function formatClock(elapsedMs: number): string {
 
 /**
  * Timeline UI for flight replay: play/pause, speed (1×–50×), scrubber, clock,
- * current phase label, and clickable phase-change markers along the track.
+ * current phase label, and clickable phase-change markers (label on hover).
  *
  * The scrubber is driven by elapsed flight time (not discrete sample index) so
  * it stays aligned with the interpolated clock and chart cursor.
@@ -81,19 +81,20 @@ export const PlaybackControls = memo(function PlaybackControls({
           aria-label="Timeline"
         />
 
-        <div className="phase-markers" aria-hidden="true">
+        <div className="phase-markers">
           {markers.map((marker) => {
             const left = (marker.elapsed_ms / safeDuration) * 100;
+            const label = `${marker.phase} @ ${formatClock(marker.elapsed_ms)}`;
             return (
               <button
                 key={`${marker.phase}-${marker.index}`}
                 type="button"
                 className="phase-tick"
                 style={{ left: `${left}%` }}
-                title={`${marker.phase} @ ${formatClock(marker.elapsed_ms)}`}
+                aria-label={`Jump to ${label}`}
                 onClick={() => onScrubElapsed(marker.elapsed_ms)}
               >
-                <span className="phase-tick-label">{marker.phase}</span>
+                <span className="phase-tick-label">{marker.phase.replace("_", " ")}</span>
               </button>
             );
           })}

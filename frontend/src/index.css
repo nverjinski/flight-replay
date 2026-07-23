@@ -96,7 +96,8 @@ button:hover {
 
 .timeline {
   position: relative;
-  padding-top: 1.4rem;
+  /* Room for hover phase labels above the tick marks. */
+  padding-top: 1.75rem;
 }
 
 .timeline input[type="range"] {
@@ -107,30 +108,67 @@ button:hover {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  height: 1.2rem;
+  top: 0.85rem;
+  height: 0.75rem;
   pointer-events: none;
 }
 
 .phase-tick {
   position: absolute;
+  top: 0;
   transform: translateX(-50%);
   pointer-events: auto;
   background: transparent;
   border: none;
   padding: 0;
-  color: var(--muted);
-  font-size: 0.65rem;
-  white-space: nowrap;
+  width: 0.85rem;
+  height: 0.75rem;
+  cursor: pointer;
 }
 
+/* Vertical tick mark */
 .phase-tick::before {
   content: "";
-  display: block;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
   width: 1px;
   height: 0.55rem;
-  margin: 0 auto 0.15rem;
   background: var(--accent);
+}
+
+/* Label only on hover/focus so dense phases do not overlap. */
+.phase-tick-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.2rem);
+  transform: translateX(-50%);
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--panel) 94%, black);
+  color: var(--text);
+  font-size: 0.65rem;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.phase-tick:hover .phase-tick-label,
+.phase-tick:focus-visible .phase-tick-label {
+  opacity: 1;
+  visibility: visible;
+}
+
+.phase-tick:hover::before,
+.phase-tick:focus-visible::before {
+  background: var(--text);
+  width: 2px;
 }
 
 .chart-block + .chart-block {
