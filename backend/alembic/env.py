@@ -1,14 +1,10 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 from flight_replay.db.models import Base
 from flight_replay.db.session import get_database_url
-
-from flight_replay.db import models as _models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -74,7 +70,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, 
+            connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
         )

@@ -95,15 +95,17 @@ def import_cmd(
     path: Path = typer.Argument(..., help="Path to telemetry JSONL file"),
     flight_id: str = typer.Option(None, "--flight-id", "-f", help="Override flight ID"),
     origin: str = typer.Option(None, "--origin", "-o", help="Origin Label. e.g. KMOB"),
-    destination: str = typer.Option(None, "--destination", "-d", help="Destination Label. e.g. KLAX"),
+    destination: str = typer.Option(
+        None, "--destination", "-d", help="Destination Label. e.g. KLAX"
+    ),
 ) -> None:
     """Load a JSONL file into Postgres"""
     if not path.is_file():
         typer.echo(f"File not found: {path}", err=True)
         raise typer.Exit(1)
 
-    from flight_replay.db.session import SessionLocal
     from flight_replay.db.import_flight import import_flight_jsonl
+    from flight_replay.db.session import SessionLocal
 
     db = SessionLocal()
 

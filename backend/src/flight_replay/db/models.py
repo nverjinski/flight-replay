@@ -11,7 +11,18 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import (JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint, func)
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -20,7 +31,7 @@ class Base(DeclarativeBase):
 
 
 class Flight(Base):
-    __tablename__="flights"
+    __tablename__ = "flights"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     aircraft_type: Mapped[str] = mapped_column(String(64))
@@ -31,12 +42,16 @@ class Flight(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # One flight -> many points / events. back_populates wires both sides.
-    points: Mapped[list[TelemetryPoint]] = relationship(back_populates="flight", cascade="all, delete-orphan")
-    events: Mapped[list[Event]] = relationship(back_populates="flight", cascade="all, delete-orphan")
+    points: Mapped[list[TelemetryPoint]] = relationship(
+        back_populates="flight", cascade="all, delete-orphan"
+    )
+    events: Mapped[list[Event]] = relationship(
+        back_populates="flight", cascade="all, delete-orphan"
+    )
 
 
 class TelemetryPoint(Base):
-    __tablename__="telemetry_points"
+    __tablename__ = "telemetry_points"
     __table_args__ = (
         UniqueConstraint("flight_id", "sequence", name="uq_telemetry_flight_sequence"),
         Index("ix_telemetry_flight_elapsed", "flight_id", "elapsed_ms"),
