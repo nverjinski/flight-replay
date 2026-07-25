@@ -33,7 +33,6 @@ def get_database_url() -> str:
 engine = create_engine(
     get_database_url(), 
     pool_pre_ping=True, # drop dead connections (helpful after laptop sleep)
-    echo=True, # print SQL to the console. Turn off later
 )
 
 # sessionmaker is a factory: SessionLocal() -> a new Session bound to `engine`.

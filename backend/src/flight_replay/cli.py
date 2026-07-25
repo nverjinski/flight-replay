@@ -90,5 +90,39 @@ def normalize(
     typer.echo(f"Wrote {count} records to {output}")
 
 
+@app.command("import")
+def import_cmd(
+    path: Path = typer.Argument(..., help="Path to telemetry JSONL file"),
+    flight_id: str = typer.Option(None, "--flight-id", "-f", help="Override flight ID"),
+    origin: str = typer.Option(None, "--origin", "-o", help="Origin Label. e.g. KMOB"),
+    destination: str = typer.Option(None, "--destination", "-d", help="Destination Label. e.g. KLAX"),
+) -> None:
+    """Load a JSONL file into Postgres"""
+    if not path.is_file():
+        typer.echo(f"File not found: {path}", err=True)
+        raise typer.Exit(1)
+
+    from flight_replay.db.session import SessionLocal
+    from flight_replay.db.import_flight import import_flight_jsonl
+
+    db = SessionLocal()
+
+    try:
+        count = import_flight_jsonl(
+            path=path,
+            session=db,
+            flight_id=flight_id,
+            origin_label=origin,
+            destination_label=destination,
+        )
+    except Exception as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
+    finally:
+        db.close()
+
+    typer.echo(f"Imported {count} points")
+
+
 if __name__ == "__main__":
     app()
