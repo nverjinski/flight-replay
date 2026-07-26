@@ -1,15 +1,13 @@
-import pytest
-
 from pathlib import Path
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from tests.conftest import sample_record
-from flight_replay.models import parse_telemetry_dict
-from flight_replay.normalize import normalize_record
 from flight_replay.db.import_flight import import_flight_jsonl, point_values
 from flight_replay.db.models import Flight, TelemetryPoint
-
+from flight_replay.models import parse_telemetry_dict
+from flight_replay.normalize import normalize_record
+from tests.conftest import sample_record
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -59,9 +57,9 @@ def test_import_flight_jsonl_roundtrip(db_session: Session) -> None:
         assert flight.aircraft_type == "Cessna 172S"
 
         n = db_session.scalar(
-            select(func.count()).select_from(TelemetryPoint).where(
-                TelemetryPoint.flight_id == flight_id
-            )
+            select(func.count())
+            .select_from(TelemetryPoint)
+            .where(TelemetryPoint.flight_id == flight_id)
         )
         assert n == 2
         # Re-import must replace, not double
@@ -72,9 +70,9 @@ def test_import_flight_jsonl_roundtrip(db_session: Session) -> None:
         )
         assert count2 == 2
         n2 = db_session.scalar(
-            select(func.count()).select_from(TelemetryPoint).where(
-                TelemetryPoint.flight_id == flight_id
-            )
+            select(func.count())
+            .select_from(TelemetryPoint)
+            .where(TelemetryPoint.flight_id == flight_id)
         )
         assert n2 == 2
 

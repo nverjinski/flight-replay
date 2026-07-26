@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from typing import Any
 
 from flight_replay.db.session import SessionLocal, engine
 
