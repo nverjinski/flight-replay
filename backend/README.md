@@ -7,6 +7,8 @@ Python package for flight telemetry validation, stats, normalization, and a thin
 ```bash
 cd backend
 uv sync --extra dev
+docker compose up -d db
+uv run alembic upgrade head
 ```
 
 Optional env (see `.env.example`):
@@ -22,6 +24,7 @@ uv run flight-replay --help
 uv run flight-replay validate ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl
 uv run flight-replay stats ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl
 uv run flight-replay normalize ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl -o ../data/normalized/kmob-kpns.jsonl
+uv run flight-replay import ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl --origin KMOB --destination KPNS
 ```
 
 ## API
