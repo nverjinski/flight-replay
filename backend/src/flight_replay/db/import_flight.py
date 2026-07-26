@@ -68,7 +68,7 @@ def import_flight_jsonl(
 
     try:
         for record in stream:
-            if record.flight_id != resolved_id:
+            if record.flight_id != first.flight_id:
                 raise ValueError(f"flight_id mismatch: {record.flight_id} != {resolved_id}")
             chunk.append(point_values(record, flight_id=resolved_id))
             if len(chunk) >= chunk_size:
@@ -100,10 +100,7 @@ def point_values(record: NormalizedTelemetryRecord, *, flight_id: str) -> dict[s
         "vertical_speed_fpm": record.vertical_speed_fpm,
         "phase": record.phase,
         "on_ground": record.on_ground,
-        "aircraft_type": record.aircraft_type,
-        "tail_number": record.tail_number,
         "throttle_pct": record.throttle_pct,
         "flaps_deg": record.flaps_deg,
         "gear_down": record.gear_down,
-        "synthetic": record.synthetic,
     }
