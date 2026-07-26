@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import pytest
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from typing import Any
+
+from flight_replay.db.session import SessionLocal, engine
 
 
 def sample_record(**overrides: Any) -> dict[str, Any]:
@@ -42,3 +47,21 @@ def sample_record(**overrides: Any) -> dict[str, Any]:
         else:
             record[key] = value
     return record
+
+
+@pytest.fixture
+def db_session() -> Session:  # type: ignore[misc]
+    """
+    Real Postgres session for integration tests.
+    Skips the test if the DB isn't reachable (Compose down, wrong URL, etc.).
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        pytest.skip(f"Postgres not available: {exc}")
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
