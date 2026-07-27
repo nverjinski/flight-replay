@@ -25,20 +25,20 @@ class FlightStore(Protocol):
     def list_flight_ids(self) -> list[str]: ...
 
     def get_telemetry(
-        self, 
+        self,
         flight_id: str,
         *,
         start_ms: int | None = None,
         end_ms: int | None = None,
         limit: int | None = None,
         offset: int = 0,
-        ) -> list[NormalizedTelemetryRecord] | None: ...
+    ) -> list[NormalizedTelemetryRecord] | None: ...
 
     def get_summary(self, flight_id: str) -> FlightSummary | None: ...
 
     def list_summaries(self) -> list[FlightSummary]: ...
 
-    #def get_events(self, flight_id: str) -> list[FlightEvent] | None: ...
+    # def get_events(self, flight_id: str) -> list[FlightEvent] | None: ...
 
 
 class FileFlightStore:
@@ -53,14 +53,14 @@ class FileFlightStore:
         return sorted(self._flights.keys())
 
     def get_telemetry(
-        self, 
-        flight_id: str, 
-        *, 
+        self,
+        flight_id: str,
+        *,
         start_ms: int | None = None,
         end_ms: int | None = None,
         limit: int | None = None,
         offset: int = 0,
-        ) -> list[NormalizedTelemetryRecord] | None:
+    ) -> list[NormalizedTelemetryRecord] | None:
         path = self._flights.get(flight_id)
         if path is None:
             # Unknown id — route will turn this into HTTP 404.

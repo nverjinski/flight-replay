@@ -10,13 +10,13 @@ from flight_replay.db.models import TelemetryPoint as TelemetryPointRow
 from flight_replay.normalize import NormalizedTelemetryRecord
 from flight_replay.stats import FlightStats
 
+
 class PostgresFlightStore:
     """FlightStore backed by Postgres. One Session per request (injected)."""
 
     def __init__(self, session: Session) -> None:
         # Keep the session on the instance so methods can use self._session
         self._session = session
-    
 
     def list_flight_ids(self) -> list[str]:
         stmt = select(Flight.id).order_by(Flight.id)
@@ -35,10 +35,12 @@ class PostgresFlightStore:
         flight = self._session.get(Flight, flight_id)
         if flight is None:
             return None
-        
-        stmt = (select(TelemetryPointRow)
-        .where(TelemetryPointRow.flight_id == flight_id)
-        .order_by(TelemetryPointRow.elapsed_ms, TelemetryPointRow.sequence))
+
+        stmt = (
+            select(TelemetryPointRow)
+            .where(TelemetryPointRow.flight_id == flight_id)
+            .order_by(TelemetryPointRow.elapsed_ms, TelemetryPointRow.sequence)
+        )
 
         if start_ms is not None:
             stmt = stmt.where(TelemetryPointRow.elapsed_ms >= start_ms)
@@ -53,8 +55,7 @@ class PostgresFlightStore:
         rows = self._session.scalars(stmt).all()
         return [orm_point_to_normalized(row, flight) for row in rows]
 
-
-    def get_summary(self, flight_id: str)-> FlightSummary | None:
+    def get_summary(self, flight_id: str) -> FlightSummary | None:
         """Get summary for a single flight."""
         flight = self._session.get(Flight, flight_id)
 
@@ -69,9 +70,10 @@ class PostgresFlightStore:
         point_count = int(count or 0)
 
         max_elapsed_ms = self._session.scalar(
-            select(func.max(TelemetryPointRow.elapsed_ms))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.max(TelemetryPointRow.elapsed_ms)).where(
+                TelemetryPointRow.flight_id == flight_id
             )
+        )
         duration_ms = int(max_elapsed_ms or 0)
 
         phase_rows = self._session.scalars(
@@ -82,50 +84,58 @@ class PostgresFlightStore:
         phases = tuple(phase_rows)
 
         lat_min = self._session.scalar(
-            select(func.min(TelemetryPointRow.latitude))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.min(TelemetryPointRow.latitude)).where(
+                TelemetryPointRow.flight_id == flight_id
+            )
         )
         lat_min = float(lat_min or 0.0)
 
         lat_max = self._session.scalar(
-            select(func.max(TelemetryPointRow.latitude))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.max(TelemetryPointRow.latitude)).where(
+                TelemetryPointRow.flight_id == flight_id
+            )
         )
         lat_max = float(lat_max or 0.0)
 
         lon_min = self._session.scalar(
-            select(func.min(TelemetryPointRow.longitude))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.min(TelemetryPointRow.longitude)).where(
+                TelemetryPointRow.flight_id == flight_id
+            )
         )
         lon_min = float(lon_min or 0.0)
 
         lon_max = self._session.scalar(
-            select(func.max(TelemetryPointRow.longitude))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.max(TelemetryPointRow.longitude)).where(
+                TelemetryPointRow.flight_id == flight_id
+            )
         )
         lon_max = float(lon_max or 0.0)
 
         alt_min = self._session.scalar(
-            select(func.min(TelemetryPointRow.altitude_ft))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.min(TelemetryPointRow.altitude_ft)).where(
+                TelemetryPointRow.flight_id == flight_id
+            )
         )
         alt_min = float(alt_min or 0.0)
 
         alt_max = self._session.scalar(
-            select(func.max(TelemetryPointRow.altitude_ft))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.max(TelemetryPointRow.altitude_ft)).where(
+                TelemetryPointRow.flight_id == flight_id
+            )
         )
         alt_max = float(alt_max or 0.0)
 
         ias_min = self._session.scalar(
-            select(func.min(TelemetryPointRow.indicated_airspeed_kt))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.min(TelemetryPointRow.indicated_airspeed_kt)).where(
+                TelemetryPointRow.flight_id == flight_id
+            )
         )
         ias_min = float(ias_min or 0.0)
 
         ias_max = self._session.scalar(
-            select(func.max(TelemetryPointRow.indicated_airspeed_kt))
-            .where(TelemetryPointRow.flight_id == flight_id)
+            select(func.max(TelemetryPointRow.indicated_airspeed_kt)).where(
+                TelemetryPointRow.flight_id == flight_id
+            )
         )
         ias_max = float(ias_max or 0.0)
 
@@ -153,14 +163,12 @@ class PostgresFlightStore:
             destination_label=flight.destination_label,
         )
 
-    
     def list_summaries(self) -> list[FlightSummary]:
         """List all flight summaries."""
         summaries: list[FlightSummary] = []
         for flight_id in self.list_flight_ids():
-            summary = self.getSummary(flight_id)
+            summary = self.get_summary(flight_id)
             if summary is not None:
                 summaries.append(summary)
 
         return summaries
-

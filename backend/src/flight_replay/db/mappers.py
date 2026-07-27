@@ -6,6 +6,7 @@ from flight_replay.db.models import Flight
 from flight_replay.db.models import TelemetryPoint as TelemetryPointRow
 from flight_replay.normalize import NormalizedTelemetryRecord
 
+
 def orm_point_to_normalized(point: TelemetryPointRow, flight: Flight) -> NormalizedTelemetryRecord:
     """
     TelemetryPointRow = one DB sample (no aricraft columns).
