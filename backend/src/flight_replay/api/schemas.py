@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -49,6 +50,12 @@ class FlightSummary(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+class FlightEvent(BaseModel):
+    type: str
+    elapsed_ms: int
+    payload: dict[str, Any] | None = None
 
 
 def to_telemetry_point(record: NormalizedTelemetryRecord) -> TelemetryPoint:

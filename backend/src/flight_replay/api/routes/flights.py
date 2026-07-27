@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from flight_replay.api.deps import FlightStore, flight_store_dep
 from flight_replay.api.schemas import (
+    FlightEvent,
     FlightSummary,
     TelemetryPoint,
     to_telemetry_point,
@@ -39,9 +40,15 @@ def get_flight_summary(
 )
 def get_flight_telemetry(
     flight_id: str,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+    limit: int | None = None,
+    offset: int = 0,
     store: FlightStore = Depends(flight_store_dep),
 ) -> list[TelemetryPoint]:
-    records = store.get_telemetry(flight_id)
+    records = store.get_telemetry(
+        flight_id, start_ms=start_ms, end_ms=end_ms, limit=limit, offset=offset
+    )
     if records is None:
         raise HTTPException(
             status_code=404,
@@ -49,3 +56,20 @@ def get_flight_telemetry(
         )
 
     return [to_telemetry_point(record) for record in records]
+
+
+@router.get(
+    "/flights/{flight_id}/events",
+    response_model=list[FlightEvent],
+)
+def get_flight_events(
+    flight_id: str, store: FlightStore = Depends(flight_store_dep)
+) -> list[FlightEvent]:
+    """Get events for a flight."""
+    events = store.get_events(flight_id)
+    if events is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Flight not found: {flight_id}",
+        )
+    return events

@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from flight_replay.api.schemas import FlightSummary, to_flight_summary
+from flight_replay.api.schemas import FlightEvent, FlightSummary, to_flight_summary
 from flight_replay.db.mappers import orm_point_to_normalized
 from flight_replay.db.models import Flight
 from flight_replay.db.models import TelemetryPoint as TelemetryPointRow
@@ -172,3 +172,8 @@ class PostgresFlightStore:
                 summaries.append(summary)
 
         return summaries
+
+    def get_events(self, flight_id: str) -> list[FlightEvent] | None:
+        if self._session.get(Flight, flight_id) is None:
+            return None
+        return []
