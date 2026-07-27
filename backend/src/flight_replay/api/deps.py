@@ -24,11 +24,21 @@ class FlightStore(Protocol):
 
     def list_flight_ids(self) -> list[str]: ...
 
-    def get_telemetry(self, flight_id: str) -> list[NormalizedTelemetryRecord] | None: ...
+    def get_telemetry(
+        self, 
+        flight_id: str,
+        *,
+        start_ms: int | None = None,
+        end_ms: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        ) -> list[NormalizedTelemetryRecord] | None: ...
 
     def get_summary(self, flight_id: str) -> FlightSummary | None: ...
 
     def list_summaries(self) -> list[FlightSummary]: ...
+
+    #def get_events(self, flight_id: str) -> list[FlightEvent] | None: ...
 
 
 class FileFlightStore:
@@ -42,14 +52,35 @@ class FileFlightStore:
     def list_flight_ids(self) -> list[str]:
         return sorted(self._flights.keys())
 
-    def get_telemetry(self, flight_id: str) -> list[NormalizedTelemetryRecord] | None:
+    def get_telemetry(
+        self, 
+        flight_id: str, 
+        *, 
+        start_ms: int | None = None,
+        end_ms: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        ) -> list[NormalizedTelemetryRecord] | None:
         path = self._flights.get(flight_id)
         if path is None:
             # Unknown id — route will turn this into HTTP 404.
             return None
 
-        # iter_normalized is a generator (lazy). list(...) reads every point now.
-        return list(iter_normalized(path))
+        # iter_normalized is a generator (lazy). list(...) reads every point into memory. Fix later.
+        points = list(iter_normalized(path))
+
+        # Apply filters
+        if start_ms is not None:
+            points = [p for p in points if p.elapsed_ms >= start_ms]
+        if end_ms is not None:
+            points = [p for p in points if p.elapsed_ms <= end_ms]
+
+        points = points[offset:]
+
+        if limit is not None:
+            points = points[:limit]
+
+        return points
 
     def get_summary(self, flight_id: str) -> FlightSummary | None:
         path = self._flights.get(flight_id)
