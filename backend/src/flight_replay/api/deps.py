@@ -6,7 +6,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 
-from flight_replay.api.schemas import FlightSummary, to_flight_summary
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+from flight_replay.api.schemas import FlightEvent, FlightSummary, to_flight_summary
+from flight_replay.db.session import get_db
+from flight_replay.db.store import PostgresFlightStore
 from flight_replay.normalize import NormalizedTelemetryRecord
 from flight_replay.readers import iter_normalized
 from flight_replay.stats import compute_stats
@@ -38,7 +43,7 @@ class FlightStore(Protocol):
 
     def list_summaries(self) -> list[FlightSummary]: ...
 
-    # def get_events(self, flight_id: str) -> list[FlightEvent] | None: ...
+    def get_events(self, flight_id: str) -> list[FlightEvent] | None: ...
 
 
 class FileFlightStore:
@@ -112,6 +117,11 @@ class FileFlightStore:
 
         return summaries
 
+    def get_events(self, flight_id: str) -> list[FlightEvent] | None:
+        if flight_id not in self._flights:
+            return None
+        return []
+
 
 def _default_data_dir() -> Path:
     """
@@ -144,7 +154,7 @@ def get_flight_store() -> FileFlightStore:
     )
 
 
-def flight_store_dep() -> FlightStore:
+def flight_store_dep(db: Session = Depends(get_db)) -> FlightStore:
     """
     FastAPI will call this when a route says:
       store: FlightStore = Depends(flight_store_dep)
@@ -152,4 +162,5 @@ def flight_store_dep() -> FlightStore:
     We return FlightStore (the Protocol) so routes don't care
     whether it's files today or Postgres later.
     """
-    return get_flight_store()
+    # return get_flight_store() # The old file-based store
+    return PostgresFlightStore(db)
