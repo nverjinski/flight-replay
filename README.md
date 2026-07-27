@@ -4,35 +4,37 @@ Telemetry debrief platform demo (KMOB→KPNS synthetic flight).
 
 ## Status
 
-**Phase 1 complete** — thin FastAPI telemetry API + React replay UI (map, charts, playback).  
-See [ROADMAP.md](ROADMAP.md) for later phases.
+**Phases 0–1 complete; Phase 2 in progress** — Postgres + SQLAlchemy + Alembic + import; API serves the React replay UI from the DB.  
+See [ROADMAP.md](ROADMAP.md) for later phases. Backend details: [backend/README.md](backend/README.md).
 
 ## Layout
 
-- `backend/` — Python package (CLI + FastAPI)
+- `backend/` — Python package (CLI + FastAPI + DB)
 - `frontend/` — Vite React TypeScript replay UI
 - `data/raw/` — original nested telemetry JSONL
 - `data/normalized/` — flat JSONL from `flight-replay normalize`
 - `docs/` — schema notes
+- `docker-compose.yml` — local Postgres
 
 ## Quick start
 
-### 1. Backend API
+### 1. Postgres + backend API
 
 ```bash
+docker compose up -d db
+
 cd backend
 uv sync --extra dev
+uv run alembic upgrade head
+uv run flight-replay import ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl \
+  --origin KMOB --destination KPNS
 make api
 ```
 
 API listens on [http://localhost:8000](http://localhost:8000). Interactive docs: `/docs`.
 
-Optional: point at a custom data directory:
-
-```bash
-export FLIGHT_REPLAY_DATA_DIR="/absolute/path/to/flight-replay/data/raw"
-make api
-```
+Default DB URL (override with `DATABASE_URL`):  
+`postgresql+psycopg://flight:flight@localhost:5432/flight_replay`
 
 ### 2. Frontend
 
@@ -58,7 +60,8 @@ Never commit real tokens (`.env` is gitignored).
 ```bash
 curl http://localhost:8000/health
 curl http://localhost:8000/flights
-curl "http://localhost:8000/flights/KMOB-KPNS-20260721-001/telemetry" | head -c 400
+curl "http://localhost:8000/flights/KMOB-KPNS-20260721-001/telemetry?limit=2"
+curl http://localhost:8000/flights/KMOB-KPNS-20260721-001/events
 ```
 
 ## Demo checklist
