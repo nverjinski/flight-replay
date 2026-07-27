@@ -4,7 +4,27 @@ Python package for flight telemetry validation, stats, normalization, JSONL→Po
 
 ## Setup
 
-From the **repo root**, start Postgres; then from `backend/`:
+### Option A — Full stack via Compose (recommended smoke path)
+
+From the **repo root**:
+
+```bash
+docker compose up -d --build
+```
+
+Then from `backend/`, import against the published DB port:
+
+```bash
+cd backend
+uv sync --extra dev
+export DATABASE_URL=postgresql+psycopg://flight:flight@localhost:5432/flight_replay
+uv run flight-replay import ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl \
+  --origin KMOB --destination KPNS
+```
+
+API: [http://localhost:8000](http://localhost:8000). The container runs migrations on start.
+
+### Option B — DB in Compose, API on the host (faster reload)
 
 ```bash
 # repo root
@@ -12,17 +32,42 @@ docker compose up -d db
 
 cd backend
 uv sync --extra dev
+export DATABASE_URL=postgresql+psycopg://flight:flight@localhost:5432/flight_replay
 uv run alembic upgrade head
 uv run flight-replay import ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl \
   --origin KMOB --destination KPNS
+make api
 ```
+
+Do not run Compose `api` and `make api` together (both use port 8000).
 
 Optional env (see `.env.example`):
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `DATABASE_URL` | `postgresql+psycopg://flight:flight@localhost:5432/flight_replay` | SQLAlchemy / Alembic / import / API |
+| `DATABASE_URL` | `postgresql+psycopg://flight:flight@localhost:5432/flight_replay` | Host CLI / local `make api` |
 | `FLIGHT_REPLAY_DATA_DIR` | `<repo>/data/raw` | JSONL paths for the file-backed store (tests / override only) |
+
+Inside the **API container**, Compose sets `DATABASE_URL` with host `db` (not `localhost`).
+
+## Docker Compose
+
+From the **repo root**:
+
+```bash
+docker compose up -d --build    # db + api
+docker compose logs -f api
+docker compose ps
+docker compose down             # keep Postgres volume
+# docker compose down -v      # wipe DB data
+```
+
+| Service | Role |
+|---------|------|
+| `db` | Postgres 16 (`flight` / `flight` / `flight_replay`), port 5432 |
+| `api` | Built from [`Dockerfile`](Dockerfile); `alembic upgrade head` then uvicorn on 8000 |
+
+`replay` is not in Compose yet (Phase 3).
 
 ## CLI
 
@@ -41,12 +86,12 @@ uv run flight-replay import ../data/raw/mobile_to_pensacola_synthetic_telemetry.
 ## Migrations
 
 ```bash
-uv run alembic upgrade head          # apply migrations
+uv run alembic upgrade head          # apply migrations (host)
 uv run alembic revision --autogenerate -m "describe change"
 uv run alembic current
 ```
 
-Schema is owned by Alembic (`alembic/versions/`), not `create_all` in app code.
+Schema is owned by Alembic (`alembic/versions/`), not `create_all` in app code. The Compose `api` image also runs `alembic upgrade head` on startup.
 
 ## API
 
@@ -104,8 +149,9 @@ make api     # run FastAPI with reload
 
 ## Layout
 
+- `Dockerfile` / `.dockerignore` — image for Compose `api`
 - `src/flight_replay/` — Pydantic models, readers, normalize, stats, CLI
-- `src/flight_replay/db/` — SQLAlchemy session/models, Alembic-backed schema, import, `PostgresFlightStore`
+- `src/flight_replay/db/` — SQLAlchemy session/models, import, `PostgresFlightStore`
 - `src/flight_replay/api/` — FastAPI app, routes, schemas, `FlightStore` Protocol + file store for tests
 - `alembic/` — migrations
 - `tests/` — pytest (API `TestClient`, import mapper, optional DB integration)

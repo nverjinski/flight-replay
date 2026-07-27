@@ -4,7 +4,9 @@ A phased roadmap for the Flight Telemetry Debrief Platform demo for Navi, starti
 
 ## Current state
 
-Phases **0–1 shipped**: Python package + CLI, thin FastAPI telemetry API, and a React replay UI (Mapbox map, Recharts, playback) over [`data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl`](data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl) (2,641 samples, ~44 min, Cessna 172S, KMOB→KPNS). Schema is **nested** (`position`, `attitude`, `performance`, `configuration`) and already includes a `phase` label. Treat those labels as **ground truth for tests**, not as something the detector should read in production.
+Phases **0–2 shipped**: Python package + CLI, Postgres + SQLAlchemy + Alembic, JSONL import, FastAPI (list/get flight, telemetry with filters, events stub), Compose `db` + `api`, and a React replay UI (Mapbox map, Recharts, playback) over [`data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl`](data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl) (2,641 samples, ~44 min, Cessna 172S, KMOB→KPNS). Schema is **nested** (`position`, `attitude`, `performance`, `configuration`) and already includes a `phase` label. Treat those labels as **ground truth for tests**, not as something the detector should read in production.
+
+**Next:** Phase 3 — streaming ingest + asyncio replay client.
 
 **Default emphasis:** balanced demo + intentional Python practice each phase.
 
@@ -38,7 +40,7 @@ flowchart LR
 
 - [x] **Phase 0:** Python package, Pydantic schema, CLI validate/stats, pytest, monorepo skeleton
 - [x] **Phase 1:** React map/charts/playback + thin FastAPI telemetry endpoint (wow demo)
-- [ ] **Phase 2:** Postgres + SQLAlchemy + Alembic + import job + flight/telemetry APIs
+- [x] **Phase 2:** Postgres + SQLAlchemy + Alembic + import job + flight/telemetry APIs (+ Compose `api`)
 - [ ] **Phase 3:** Async replay service POSTing `/telemetry` at 1×/10×/100×
 - [ ] **Phase 4:** Pure Python event detectors + events API + timeline UI
 - [ ] **Phase 5:** LLM debrief with structured outputs + Generate Debrief UI

@@ -4,37 +4,49 @@ Telemetry debrief platform demo (KMOB→KPNS synthetic flight).
 
 ## Status
 
-**Phases 0–1 complete; Phase 2 in progress** — Postgres + SQLAlchemy + Alembic + import; API serves the React replay UI from the DB.  
-See [ROADMAP.md](ROADMAP.md) for later phases. Backend details: [backend/README.md](backend/README.md).
+**Phases 0–2 complete** — Postgres-backed FastAPI + Alembic + import + React replay UI.  
+Compose runs `db` + `api`. Phase 3 next: streaming ingest / replay client.  
+See [ROADMAP.md](ROADMAP.md). Backend details: [backend/README.md](backend/README.md).
 
 ## Layout
 
-- `backend/` — Python package (CLI + FastAPI + DB)
+- `backend/` — Python package (CLI + FastAPI + DB); includes `Dockerfile`
 - `frontend/` — Vite React TypeScript replay UI
 - `data/raw/` — original nested telemetry JSONL
 - `data/normalized/` — flat JSONL from `flight-replay normalize`
 - `docs/` — schema notes
-- `docker-compose.yml` — local Postgres
+- `docker-compose.yml` — local Postgres + API
 
 ## Quick start
 
-### 1. Postgres + backend API
+### 1. Postgres + backend API (Docker Compose)
+
+From the **repo root**:
+
+```bash
+docker compose up -d --build
+```
+
+That starts Postgres and the API container. The API runs `alembic upgrade head` on startup and listens on [http://localhost:8000](http://localhost:8000) (`/docs`).
+
+Import demo data from the **host** (CLI talks to Postgres on published port 5432):
+
+```bash
+cd backend
+uv sync --extra dev
+export DATABASE_URL=postgresql+psycopg://flight:flight@localhost:5432/flight_replay
+uv run flight-replay import ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl \
+  --origin KMOB --destination KPNS
+```
+
+**Dev alternative (hot reload):** run only the DB in Compose, API on the host:
 
 ```bash
 docker compose up -d db
-
-cd backend
-uv sync --extra dev
-uv run alembic upgrade head
-uv run flight-replay import ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl \
-  --origin KMOB --destination KPNS
-make api
+cd backend && make api
 ```
 
-API listens on [http://localhost:8000](http://localhost:8000). Interactive docs: `/docs`.
-
-Default DB URL (override with `DATABASE_URL`):  
-`postgresql+psycopg://flight:flight@localhost:5432/flight_replay`
+Do not run Compose `api` and `make api` at the same time — both bind port 8000.
 
 ### 2. Frontend
 
