@@ -7,6 +7,8 @@ from flight_replay.api.schemas import (
     FlightEvent,
     FlightSummary,
     TelemetryPoint,
+    TelemetryIngestRequest,
+    TelemetryIngestResult,
     to_telemetry_point,
 )
 
@@ -73,3 +75,23 @@ def get_flight_events(
             detail=f"Flight not found: {flight_id}",
         )
     return events
+
+@router.post(
+    "/flights/{flight_id}/telemetry",
+    response_model=TelemetryIngestResult,
+    status_code=201,
+)
+def post_flight_telemetry(
+    flight_id: str, 
+    body: TelemetryIngestRequest,
+    store: FlightStore = Depends(flight_store_dep),
+)->TelemetryIngestResult:
+    """Append telemetry points to a flight."""
+
+    if not body.points:
+        raise HTTPException(
+            status_code=400,
+            detail="Points must not be empty",
+        )
+    
+    return store.append_telemetry(flight_id, body.points);
