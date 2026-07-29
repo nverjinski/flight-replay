@@ -58,6 +58,51 @@ class FlightEvent(BaseModel):
     payload: dict[str, Any] | None = None
 
 
+class TelemetryIngestPoint(BaseModel):
+    """One sample posted by a collector/ replay client."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str
+    sequence: int
+    timestamp: datetime
+    elapsed_ms: int
+    latitude: float
+    longitude: float
+    altitude_ft: float
+    heading_true_deg: float
+    pitch_deg: float
+    bank_deg: float
+    indicated_airspeed_kt: float
+    vertical_speed_fpm: float
+    phase: str
+    on_ground: bool
+    throttle_pct: float
+    flaps_deg: float
+    gear_down: bool
+
+    # Flight metadata: used to upsert the flights row on first post
+    aircraft_type: str
+    tail_number: str
+    synthetic: bool = True
+    origin_label: str | None = None
+    destination_label: str | None = None
+
+
+class TelemetryIngestRequest(BaseModel):
+    """Allow one point or a small batch (replay at 100x may batch later)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    points: list[TelemetryIngestPoint]
+
+
+class TelemetryIngestResult(BaseModel):
+    flight_id: str
+    inserted: int
+    skipped: int  # Duplicate (flight_id, sequence)
+
+
 def to_telemetry_point(record: NormalizedTelemetryRecord) -> TelemetryPoint:
     """Turn our internal dataclass into the API Pydantic model."""
     return TelemetryPoint.model_validate(asdict(record))
