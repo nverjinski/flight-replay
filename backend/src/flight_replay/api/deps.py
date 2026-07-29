@@ -9,7 +9,13 @@ from typing import Protocol
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from flight_replay.api.schemas import FlightEvent, FlightSummary, to_flight_summary
+from flight_replay.api.schemas import (
+    FlightEvent,
+    FlightSummary,
+    TelemetryIngestPoint,
+    TelemetryIngestResult,
+    to_flight_summary,
+)
 from flight_replay.db.session import get_db
 from flight_replay.db.store import PostgresFlightStore
 from flight_replay.normalize import NormalizedTelemetryRecord
@@ -45,6 +51,23 @@ class FlightStore(Protocol):
 
     def get_events(self, flight_id: str) -> list[FlightEvent] | None: ...
 
+    def upsert_flight(
+        self,
+        flight_id: str,
+        *,
+        aircraft_type: str,
+        tail_number: str,
+        synthetic: bool,
+        origin_label: str | None = None,
+        destination_label: str | None = None,
+    ) -> None: ...
+
+    def append_telemetry(
+        self,
+        flight_id: str,
+        points: list[TelemetryIngestPoint],
+    ) -> TelemetryIngestResult: ...
+
 
 class FileFlightStore:
     """Looks up flights by id and reads telemetry from JSONL files on disk."""
@@ -53,6 +76,12 @@ class FileFlightStore:
         # Copy into a normal dict so we own the mapping.
         # Example: {"KMOB-KPNS-20260721-001": Path(".../file.jsonl")}
         self._flights = dict(flights)
+
+    def upsert_flight(self, flight_id: str, *, aircraft_type: str, tail_number: str, synthetic: bool, origin_label: str | None = None, destination_label: str | None = None) -> None:
+        raise NotImplementedError("FileFlightStore is read-only")
+
+    def append_telemetry(self, flight_id: str, points: list[TelemetryIngestPoint]) -> TelemetryIngestResult:
+        raise NotImplementedError("FileFlightStore is read-only")
 
     def list_flight_ids(self) -> list[str]:
         return sorted(self._flights.keys())

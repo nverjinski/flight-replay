@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from flight_replay.api.schemas import FlightEvent, FlightSummary, to_flight_summary
+from flight_replay.api.schemas import TelemetryIngestPoint, TelemetryIngestResult, FlightEvent, FlightSummary, to_flight_summary
 from flight_replay.db.mappers import orm_point_to_normalized
 from flight_replay.db.models import Flight
 from flight_replay.db.models import TelemetryPoint as TelemetryPointRow
 from flight_replay.normalize import NormalizedTelemetryRecord
+from flight_replay.db.import_flight import ingest_point_values
 from flight_replay.stats import FlightStats
 
 
@@ -177,3 +179,68 @@ class PostgresFlightStore:
         if self._session.get(Flight, flight_id) is None:
             return None
         return []
+
+    def upsert_flight(
+        self,
+        flight_id: str,
+        *,
+        aircraft_type: str,
+        tail_number: str,
+        synthetic: bool,
+        origin_label: str | None,
+        destination_label: str | None,
+    ) -> None:
+        """Upsert a flight."""
+        flight = self._session.get(Flight, flight_id)
+        if flight is None:
+            self._session.add(
+                Flight(
+                    id=flight_id,
+                    aircraft_type=aircraft_type,
+                    tail_number=tail_number,
+                    synthetic=synthetic,
+                    origin_label=origin_label,
+                    destination_label=destination_label,
+                )
+            )
+            self._session.flush()
+        else:
+            flight.aircraft_type = aircraft_type
+            flight.tail_number = tail_number
+            flight.synthetic = synthetic
+            if origin_label is not None:
+                flight.origin_label = origin_label
+            if destination_label is not None:
+                flight.destination_label = destination_label
+            self._session.flush()
+
+
+    def append_telemetry(
+        self,
+        flight_id: str,
+        points: list[TelemetryIngestPoint],
+    ) -> TelemetryIngestResult:
+        """Append telemetry points to a flight."""
+
+        if not points:
+            return TelemetryIngestResult(flight_id=flight_id, inserted=0, skipped=0)
+
+        first = points[0]
+        flight = self.upsert_flight(flight_id, aircraft_type=first.aircraft_type, tail_number=first.tail_number, synthetic=first.synthetic, origin_label=first.origin_label, destination_label=first.destination_label)
+
+        rows = [ingest_point_values(flight_id, p) for p in points]
+
+        stmt = (pg_insert(TelemetryPointRow)
+        .values(rows)
+        .on_conflict_do_nothing(constraint="uq_telemetry_flight_sequence")
+        .returning(TelemetryPointRow.id))
+
+        result = self._session.execute(stmt)
+        inserted_ids = result.scalars().all()
+        inserted = len(inserted_ids)
+        skipped = len(rows) - inserted
+
+        self._session.commit()
+
+        return TelemetryIngestResult(flight_id=flight_id, inserted=inserted, skipped=skipped)
+
