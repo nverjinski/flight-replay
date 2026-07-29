@@ -109,6 +109,7 @@ make api
 | `GET` | `/flights` | Flight summaries from the DB |
 | `GET` | `/flights/{id}` | One summary |
 | `GET` | `/flights/{id}/telemetry` | Normalized points (optional filters below) |
+| `POST` | `/flights/{id}/telemetry` | Append points (`{"points":[...]}`); creates flight if needed; idempotent on `(flight_id, sequence)` |
 | `GET` | `/flights/{id}/events` | Event list (empty until Phase 4 detectors) |
 
 ### Telemetry query params
@@ -122,19 +123,64 @@ All optional. Omit them for the full flight (what the React UI uses today).
 | `limit` | Max number of points |
 | `offset` | Skip the first N points (after filters) |
 
+### Append ingest (live / replay)
+
+`POST /flights/{id}/telemetry` accepts a batch:
+
+```json
+{
+  "points": [
+    {
+      "schema_version": "1.0",
+      "sequence": 0,
+      "timestamp": "2026-07-21T19:00:00Z",
+      "elapsed_ms": 0,
+      "latitude": 30.69,
+      "longitude": -88.24,
+      "altitude_ft": 220,
+      "heading_true_deg": 140,
+      "pitch_deg": 0,
+      "bank_deg": 0,
+      "indicated_airspeed_kt": 0,
+      "vertical_speed_fpm": 0,
+      "phase": "preflight",
+      "on_ground": true,
+      "throttle_pct": 12,
+      "flaps_deg": 0,
+      "gear_down": true,
+      "aircraft_type": "Cessna 172S",
+      "tail_number": "N172NV",
+      "synthetic": true,
+      "origin_label": "KMOB",
+      "destination_label": "KPNS"
+    }
+  ]
+}
+```
+
+- Upserts the `flights` row from point metadata (origin/destination optional).
+- Inserts points with `ON CONFLICT DO NOTHING` on `(flight_id, sequence)` — retries are safe.
+- Response: `{"flight_id", "inserted", "skipped"}` (HTTP 201).
+- Unlike `flight-replay import`, this **does not** delete existing points.
+
 Examples:
 
 ```bash
 curl -s http://localhost:8000/flights
 curl -s "http://localhost:8000/flights/KMOB-KPNS-20260721-001/telemetry?limit=2"
 curl -s http://localhost:8000/flights/KMOB-KPNS-20260721-001/events
+
+# Append (use a dedicated flight id while experimenting)
+curl -s -X POST "http://localhost:8000/flights/LIVE-TEST-001/telemetry" \
+  -H "Content-Type: application/json" \
+  -d '{"points":[{...}]}'
 ```
 
 CORS allows `http://localhost:5173` (Vite). OpenAPI UI: [http://localhost:8000/docs](http://localhost:8000/docs).
 
 Demo flight id after import: `KMOB-KPNS-20260721-001`.
 
-API unit tests still inject `FileFlightStore` via FastAPI `dependency_overrides` so they do not require Postgres. Integration tests that hit the DB skip automatically when Postgres is down.
+API unit tests still inject `FileFlightStore` via FastAPI `dependency_overrides` so they do not require Postgres. Integration / ingest tests that hit the DB skip automatically when Postgres is down.
 
 ## Quality checks
 
