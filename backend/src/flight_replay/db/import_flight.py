@@ -3,6 +3,7 @@ from pathlib import Path
 from sqlalchemy import delete, insert
 from sqlalchemy.orm import Session
 
+from flight_replay.api.schemas import TelemetryIngestPoint
 from flight_replay.db.models import Flight, TelemetryPoint
 from flight_replay.normalize import NormalizedTelemetryRecord
 from flight_replay.readers import iter_normalized
@@ -103,4 +104,27 @@ def point_values(record: NormalizedTelemetryRecord, *, flight_id: str) -> dict[s
         "throttle_pct": record.throttle_pct,
         "flaps_deg": record.flaps_deg,
         "gear_down": record.gear_down,
+    }
+
+
+def ingest_point_values(flight_id: str, point: TelemetryIngestPoint) -> dict[str, object]:
+    return {
+        "flight_id": flight_id,
+        "schema_version": point.schema_version,
+        "sequence": point.sequence,
+        "timestamp": point.timestamp,
+        "elapsed_ms": point.elapsed_ms,
+        "latitude": point.latitude,
+        "longitude": point.longitude,
+        "altitude_ft": point.altitude_ft,
+        "heading_true_deg": point.heading_true_deg,
+        "pitch_deg": point.pitch_deg,
+        "bank_deg": point.bank_deg,
+        "indicated_airspeed_kt": point.indicated_airspeed_kt,
+        "vertical_speed_fpm": point.vertical_speed_fpm,
+        "phase": point.phase,
+        "on_ground": point.on_ground,
+        "throttle_pct": point.throttle_pct,
+        "flaps_deg": point.flaps_deg,
+        "gear_down": point.gear_down,
     }
