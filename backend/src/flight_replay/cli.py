@@ -126,5 +126,32 @@ def import_cmd(
     typer.echo(f"Imported {count} points")
 
 
+@app.command("replay")
+def replay_cmd(
+    path: Path = typer.Argument(..., help="Telemetry JSONL"),
+    base_url: str = typer.Option("http://localhost:8000", "--base-url"),
+    speed: int = typer.Option(1, "--speed", help="1, 10, or 100"),
+    flight_id: str | None = typer.Option(None, "--flight-id", "-f"),
+) -> None:
+    """Stream JSONL to POST /flights/{id}/telemetry at wall-clock × speed."""
+    if speed not in (1, 10, 100):
+        typer.echo("speed must be 1, 10, or 100", err=True)
+        raise typer.Exit(1)
+    if not path.is_file():
+        typer.echo(f"File not found: {path}", err=True)
+        raise typer.Exit(1)
+    from flight_replay.replay.runner import run_replay
+    import asyncio
+    try:
+        asyncio.run(
+            run_replay(path, base_url=base_url, flight_id=flight_id, speed=float(speed))
+        )
+    except KeyboardInterrupt:
+        typer.echo("Interrupted", err=True)
+        raise typer.Exit(130)
+    except Exception as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
+
 if __name__ == "__main__":
     app()
