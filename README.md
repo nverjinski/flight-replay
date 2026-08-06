@@ -4,8 +4,8 @@ Telemetry debrief platform demo (KMOB→KPNS synthetic flight).
 
 ## Status
 
-**Phases 0–2 complete** — Postgres-backed FastAPI + Alembic + import + React replay UI.  
-Compose runs `db` + `api`. Phase 3 next: streaming ingest / replay client.  
+**Phases 0–2 complete; Phase 3 in progress** — Postgres-backed FastAPI + Alembic + import + React UI; HTTP append ingest + asyncio `flight-replay replay` client.  
+Compose runs `db` + `api`. Next: live UI polling.  
 See [ROADMAP.md](ROADMAP.md). Backend details: [backend/README.md](backend/README.md).
 
 ## Layout

@@ -79,9 +79,37 @@ uv run flight-replay validate ../data/raw/mobile_to_pensacola_synthetic_telemetr
 uv run flight-replay stats ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl
 uv run flight-replay normalize ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl -o ../data/normalized/kmob-kpns.jsonl
 uv run flight-replay import ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl --origin KMOB --destination KPNS
+uv run flight-replay replay ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl \
+  --base-url http://localhost:8000 \
+  --speed 100 \
+  --flight-id LIVE-REPLAY-DEMO
 ```
 
-`import` upserts a `flights` row and replaces that flight’s `telemetry_points` (idempotent re-run). Optional `--flight-id` overrides the id stored in the DB.
+`import` upserts a `flights` row and **replaces** that flight’s `telemetry_points` (idempotent re-run). Optional `--flight-id` overrides the id stored in the DB.
+
+### Live replay (asyncio → POST ingest)
+
+`replay` streams JSONL through `POST /flights/{id}/telemetry` at wall-clock × speed. Gaps between points come from `elapsed_ms` deltas ÷ `--speed` (not a fixed `sleep(1)`). The API must already be running.
+
+| Flag | Default | Notes |
+|------|---------|--------|
+| `--base-url` | `http://localhost:8000` | FastAPI origin |
+| `--speed` | `1` | Must be `1`, `10`, or `100` |
+| `--flight-id` / `-f` | (from JSONL) | Use a dedicated id while experimenting so you don’t mix sequences with an imported demo |
+
+```bash
+# Smoke: 2-point fixture (~1s gap at 1× if samples are 1s apart)
+uv run flight-replay replay tests/fixtures/valid_two.jsonl \
+  --speed 1 \
+  --flight-id LIVE-REPLAY-001
+
+# Full demo file (~44 min flight ≈ 26s wall at 100×)
+uv run flight-replay replay ../data/raw/mobile_to_pensacola_synthetic_telemetry.jsonl \
+  --speed 100 \
+  --flight-id LIVE-REPLAY-DEMO
+```
+
+Ctrl+C stops the client; already-posted points remain (append is durable). Unlike `import`, replay **appends** via HTTP and never deletes existing points.
 
 ## Migrations
 
@@ -199,5 +227,6 @@ make api     # run FastAPI with reload
 - `src/flight_replay/` — Pydantic models, readers, normalize, stats, CLI
 - `src/flight_replay/db/` — SQLAlchemy session/models, import, `PostgresFlightStore`
 - `src/flight_replay/api/` — FastAPI app, routes, schemas, `FlightStore` Protocol + file store for tests
+- `src/flight_replay/replay/` — asyncio + httpx JSONL → `POST /telemetry` (timing, payload, runner)
 - `alembic/` — migrations
-- `tests/` — pytest (API `TestClient`, import mapper, optional DB integration)
+- `tests/` — pytest (API `TestClient`, import/ingest, replay timing, optional DB integration)
