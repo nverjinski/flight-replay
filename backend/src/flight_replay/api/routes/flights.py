@@ -46,10 +46,16 @@ def get_flight_telemetry(
     end_ms: int | None = None,
     limit: int | None = None,
     offset: int = 0,
+    after_sequence: int | None = None,
     store: FlightStore = Depends(flight_store_dep),
 ) -> list[TelemetryPoint]:
     records = store.get_telemetry(
-        flight_id, start_ms=start_ms, end_ms=end_ms, limit=limit, offset=offset
+        flight_id, 
+        start_ms=start_ms, 
+        end_ms=end_ms, 
+        limit=limit, 
+        offset=offset, 
+        after_sequence=after_sequence,
     )
     if records is None:
         raise HTTPException(

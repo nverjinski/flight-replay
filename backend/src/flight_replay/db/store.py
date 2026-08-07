@@ -32,6 +32,7 @@ class PostgresFlightStore:
         end_ms: int | None = None,
         limit: int | None = None,
         offset: int = 0,
+        after_sequence: int | None = None,
     ) -> list[NormalizedTelemetryRecord] | None:
         """Get telemetry points for a flight."""
         flight = self._session.get(Flight, flight_id)
@@ -48,7 +49,8 @@ class PostgresFlightStore:
             stmt = stmt.where(TelemetryPointRow.elapsed_ms >= start_ms)
         if end_ms is not None:
             stmt = stmt.where(TelemetryPointRow.elapsed_ms <= end_ms)
-
+        if after_sequence is not None:
+            stmt = stmt.where(TelemetryPointRow.sequence > after_sequence)
         if offset:
             stmt = stmt.offset(offset)
         if limit is not None:

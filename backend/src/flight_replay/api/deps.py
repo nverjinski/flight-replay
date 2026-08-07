@@ -43,6 +43,7 @@ class FlightStore(Protocol):
         end_ms: int | None = None,
         limit: int | None = None,
         offset: int = 0,
+        after_sequence: int | None = None,
     ) -> list[NormalizedTelemetryRecord] | None: ...
 
     def get_summary(self, flight_id: str) -> FlightSummary | None: ...
@@ -94,6 +95,7 @@ class FileFlightStore:
         end_ms: int | None = None,
         limit: int | None = None,
         offset: int = 0,
+        after_sequence: int | None = None,
     ) -> list[NormalizedTelemetryRecord] | None:
         path = self._flights.get(flight_id)
         if path is None:
@@ -108,6 +110,9 @@ class FileFlightStore:
             points = [p for p in points if p.elapsed_ms >= start_ms]
         if end_ms is not None:
             points = [p for p in points if p.elapsed_ms <= end_ms]
+        
+        if after_sequence is not None:
+            points = [p for p in points if p.sequence > after_sequence]
 
         points = points[offset:]
 
